@@ -1,0 +1,82 @@
+{% extends 'content/base.html' %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-12">
+        <h2 class="mb-4">Admin Dashboard - Flagged Comments</h2>
+        <div class="table-responsive">
+            <table class="table table-bordered table-hover">
+                <thead class="table-dark">
+                    <tr>
+                        <th>ID</th>
+                        <th>Author</th>
+                        <th>Post</th>
+                        <th>Content</th>
+                        <th>Status</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody id="flagged-comments-body">
+                    <!-- Comments loaded here -->
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<script>
+    async function loadFlaggedComments() {
+        const response = await fetch('/api/admin/comments/flagged/', {
+            headers: { 'Authorization': 'Bearer ' + localStorage.getItem('access') }
+        });
+
+        if (response.status === 403) {
+            alert('Unauthorized: You are not an admin.');
+            window.location.href = '/posts/';
+            return;
+        }
+
+        const comments = await response.json();
+        const tbody = document.getElementById('flagged-comments-body');
+        tbody.innerHTML = '';
+
+        comments.forEach(comment => {
+            const row = `
+                <tr>
+                    <td><small>${comment.id.substring(0, 8)}...</small></td>
+                    <td>${comment.author}</td>
+                    <td><a href="/posts/${comment.post}/" target="_blank">View Post</a></td>
+                    <td>${comment.content}</td>
+                    <td><span class="badge bg-warning text-dark">${comment.status}</span></td>
+                    <td>
+                        <button class="btn btn-success btn-sm me-2" onclick="reviewComment('${comment.id}', 'approve')">Approve</button>
+                        <button class="btn btn-danger btn-sm" onclick="reviewComment('${comment.id}', 'reject')">Reject</button>
+                    </td>
+                </tr>
+            `;
+            tbody.innerHTML += row;
+        });
+    }
+
+    async function reviewComment(commentId, action) {
+        if (!confirm(`Are you sure you want to ${action} this comment?`)) return;
+
+        const response = await fetch(`/api/admin/comments/${commentId}/action/`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': 'Bearer ' + localStorage.getItem('access')
+            },
+            body: JSON.stringify({ action })
+        });
+
+        if (response.ok) {
+            loadFlaggedComments();
+        } else {
+            alert('Action failed');
+        }
+    }
+
+    loadFlaggedComments();
+</script>
+{% endblock %}

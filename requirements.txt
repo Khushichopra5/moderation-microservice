@@ -1,0 +1,13 @@
+
+Django>=4.2,<5.0
+djangorestframework
+psycopg2-binary
+celery
+redis
+python-dotenv
+requests
+djangorestframework-simplejwt
+google-auth
+google-auth-httplib2
+google-cloud-language
+

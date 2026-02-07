@@ -1,0 +1,85 @@
+{% extends 'content/base.html' %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-12 mb-4">
+        <h2>Posts</h2>
+        <button class="btn btn-success float-end" data-bs-toggle="modal" data-bs-target="#createPostModal">Create
+            Post</button>
+    </div>
+    <div class="col-md-12" id="posts-container">
+        <!-- Posts will be loaded here -->
+    </div>
+</div>
+
+<!-- Create Post Modal -->
+<div class="modal fade" id="createPostModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Create New Post</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="create-post-form">
+                    <div class="mb-3">
+                        <label class="form-label">Title</label>
+                        <input type="text" class="form-control" id="post-title" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Content</label>
+                        <textarea class="form-control" id="post-content" rows="3" required></textarea>
+                    </div>
+                    <button type="submit" class="btn btn-primary">Submit</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    async function loadPosts() {
+        const response = await fetch('/api/posts/', {
+            headers: { 'Authorization': 'Bearer ' + localStorage.getItem('access') }
+        });
+        const data = await response.json();
+        const posts = data.results || []; // Handle both paginated and non-paginated (just in case)
+        const container = document.getElementById('posts-container');
+        container.innerHTML = '';
+
+        posts.forEach(post => {
+            const card = `
+                <div class="card mb-3">
+                    <div class="card-body">
+                        <h5 class="card-title"><a href="/posts/${post.id}/">${post.title}</a></h5>
+                        <h6 class="card-subtitle mb-2 text-muted">by ${post.author} on ${new Date(post.created_at).toLocaleDateString()}</h6>
+                        <p class="card-text">${post.content.substring(0, 200)}...</p>
+                    </div>
+                </div>
+            `;
+            container.innerHTML += card;
+        });
+    }
+
+    document.getElementById('create-post-form').addEventListener('submit', async function (e) {
+        e.preventDefault();
+        const title = document.getElementById('post-title').value;
+        const content = document.getElementById('post-content').value;
+
+        const response = await fetch('/api/posts/', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': 'Bearer ' + localStorage.getItem('access')
+            },
+            body: JSON.stringify({ title, content })
+        });
+
+        if (response.ok) {
+            window.location.reload();
+        }
+    });
+
+    loadPosts();
+</script>
+{% endblock %}

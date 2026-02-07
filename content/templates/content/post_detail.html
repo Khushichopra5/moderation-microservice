@@ -1,0 +1,104 @@
+{% extends 'content/base.html' %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-12">
+        <div class="card mb-4">
+            <div class="card-body">
+                <h1 id="post-title">Loading...</h1>
+                <p class="text-muted" id="post-meta"></p>
+                <hr>
+                <div id="post-content"></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-md-12">
+        <h3>Comments</h3>
+        <div id="comments-list" class="mb-4">
+            <!-- Comments loaded here -->
+        </div>
+
+        <div class="card">
+            <div class="card-body">
+                <h5>Add a Comment</h5>
+                <form id="comment-form">
+                    <div class="mb-3">
+                        <textarea class="form-control" id="comment-content" rows="2" required></textarea>
+                    </div>
+                    <button type="submit" class="btn btn-primary">Submit Comment</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    const postId = window.location.pathname.split('/')[2];
+
+    async function loadPost() {
+        const response = await fetch(`/api/posts/${postId}/`, {
+            headers: { 'Authorization': 'Bearer ' + localStorage.getItem('access') }
+        });
+        const post = await response.json();
+
+        document.getElementById('post-title').innerText = post.title;
+        document.getElementById('post-meta').innerText = `by ${post.author} on ${new Date(post.created_at).toLocaleString()}`;
+        document.getElementById('post-content').innerText = post.content;
+    }
+
+    async function loadComments() {
+        const response = await fetch(`/api/posts/${postId}/comments/`, {
+            headers: { 'Authorization': 'Bearer ' + localStorage.getItem('access') }
+        });
+        const comments = await response.json();
+        const list = document.getElementById('comments-list');
+        list.innerHTML = '';
+
+        if (comments.length === 0) {
+            list.innerHTML = '<p class="text-muted">No comments yet.</p>';
+            return;
+        }
+
+        comments.forEach(comment => {
+            const item = `
+                <div class="card mb-2">
+                    <div class="card-body py-2">
+                        <strong>${comment.author}</strong> <small class="text-muted">${new Date(comment.created_at).toLocaleString()}</small>
+                        <p class="mb-0 mt-1">${comment.content}</p>
+                    </div>
+                </div>
+            `;
+            list.innerHTML += item;
+        });
+    }
+
+    document.getElementById('comment-form').addEventListener('submit', async function (e) {
+        e.preventDefault();
+        const content = document.getElementById('comment-content').value;
+
+        const response = await fetch(`/api/posts/${postId}/comments/submit/`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': 'Bearer ' + localStorage.getItem('access')
+            },
+            body: JSON.stringify({ content })
+        });
+
+        if (response.ok) {
+            document.getElementById('comment-content').value = '';
+            alert('Comment submitted! It will appear once approved.');
+            // Reload comments to see if it was auto-approved (optional, usually moderation takes time)
+            setTimeout(loadComments, 2000);
+        } else {
+            alert('Failed to submit comment');
+        }
+    });
+
+    loadPost();
+    loadComments();
+</script>
+{% endblock %}

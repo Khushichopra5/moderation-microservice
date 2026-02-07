@@ -205,3 +205,15 @@ cython_debug/
 marimo/_static/
 marimo/_lsp/
 __marimo__/
+
+# Environment files with credentials
+.env
+.env.local
+.env.credentials
+service-account-key.json
+service-account-key.json.backup
+
+# Temporary test files
+/tmp/*
+*.pyc
+__pycache__/
