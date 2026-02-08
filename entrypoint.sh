@@ -4,8 +4,12 @@ set -e  # Exit on error
 
 echo "=== Moderation Microservice Startup ==="
 
-# Wait for Postgres to be ready
-if [ "$SQL_HOST" ]; then
+# Railway provides DATABASE_URL and database is already running
+if [ "$DATABASE_URL" ]; then
+    echo "Railway deployment detected (DATABASE_URL is set)"
+    echo "Skipping database wait - Railway database is already provisioned"
+elif [ "$SQL_HOST" ]; then
+    echo "Docker Compose deployment detected"
     echo "Waiting for PostgreSQL at $SQL_HOST:$SQL_PORT..."
 
     until nc -z -w 1 "$SQL_HOST" "$SQL_PORT" 2>/dev/null; do
@@ -14,15 +18,18 @@ if [ "$SQL_HOST" ]; then
     done
 
     echo "✓ PostgreSQL is up"
-
-    # Additional check: Try to connect
-    echo "Verifying database connection..."
-    python manage.py check --database default || {
-        echo "ERROR: Database connection failed"
-        exit 1
-    }
-    echo "✓ Database connection verified"
 fi
+
+# Verify database connection (works for both Railway and Docker)
+echo "Verifying database connection..."
+python manage.py check --database default || {
+    echo "ERROR: Database connection failed"
+    echo "Please check your database configuration:"
+    echo "  - Railway: Ensure PostgreSQL service is provisioned"
+    echo "  - Docker: Ensure 'db' service is running"
+    exit 1
+}
+echo "✓ Database connection verified"
 
 # Check for pending migrations
 echo "Checking for pending migrations..."
