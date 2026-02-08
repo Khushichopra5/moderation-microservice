@@ -54,6 +54,7 @@ REST_FRAMEWORK = {
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
+    'whitenoise.middleware.WhiteNoiseMiddleware',  # Add WhiteNoise for static files in production
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
@@ -87,7 +88,20 @@ WSGI_APPLICATION = 'config.wsgi.application'
 # Database
 # https://docs.djangoproject.com/en/4.2/ref/settings/#databases
 
-if os.environ.get("SQL_DATABASE"):
+# Railway provides DATABASE_URL automatically when you provision PostgreSQL
+# Priority: DATABASE_URL (Railway) > Individual SQL_* vars (Docker) > SQLite (local dev)
+if os.environ.get("DATABASE_URL"):
+    # Railway deployment: Parse DATABASE_URL
+    import dj_database_url
+    DATABASES = {
+        'default': dj_database_url.config(
+            default=os.environ.get('DATABASE_URL'),
+            conn_max_age=600,
+            ssl_require=True
+        )
+    }
+elif os.environ.get("SQL_DATABASE"):
+    # Docker Compose deployment: Use individual environment variables
     DATABASES = {
         'default': {
             'ENGINE': os.environ.get('SQL_ENGINE', 'django.db.backends.postgresql'),
@@ -99,6 +113,7 @@ if os.environ.get("SQL_DATABASE"):
         }
     }
 else:
+    # Local development: Use SQLite
     DATABASES = {
         'default': {
             'ENGINE': 'django.db.backends.sqlite3',
@@ -141,7 +156,11 @@ USE_TZ = True
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/4.2/howto/static-files/
 
-STATIC_URL = 'static/'
+STATIC_URL = '/static/'
+STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
+
+# WhiteNoise configuration for serving static files in production
+STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/4.2/ref/settings/#default-auto-field
@@ -152,8 +171,11 @@ AUTH_USER_MODEL = 'content.User'
 
 
 # Celery Configuration
-CELERY_BROKER_URL = os.environ.get('CELERY_BROKER_URL', 'redis://localhost:6379/0')
-CELERY_RESULT_BACKEND = os.environ.get('CELERY_RESULT_BACKEND', 'redis://localhost:6379/0')
+# Railway provides REDIS_URL when you provision Redis
+# For Railway: Use REDIS_URL, for Docker: use CELERY_BROKER_URL, fallback to localhost
+REDIS_URL = os.environ.get('REDIS_URL', os.environ.get('CELERY_BROKER_URL', 'redis://localhost:6379/0'))
+CELERY_BROKER_URL = REDIS_URL
+CELERY_RESULT_BACKEND = REDIS_URL
 CELERY_ACCEPT_CONTENT = ['json']
 CELERY_TASK_SERIALIZER = 'json'
 CELERY_RESULT_SERIALIZER = 'json'
@@ -229,5 +251,12 @@ os.makedirs(os.path.join(BASE_DIR, 'logs'), exist_ok=True)
 
 SECRET_KEY = os.environ.get("SECRET_KEY", "django-insecure-q@35n8h%tq7__(s+amf6qkfum2dsdl_ht8!w!ly@eb29-3+7l+")
 DEBUG = int(os.environ.get("DEBUG", default=1))
-ALLOWED_HOSTS = os.environ.get("DJANGO_ALLOWED_HOSTS", "localhost 127.0.0.1 [::1]").split(" ")
+
+# ALLOWED_HOSTS configuration
+# Support both comma-separated (Railway standard) and space-separated formats
+allowed_hosts_raw = os.environ.get("ALLOWED_HOSTS", os.environ.get("DJANGO_ALLOWED_HOSTS", "localhost 127.0.0.1 [::1]"))
+if ',' in allowed_hosts_raw:
+    ALLOWED_HOSTS = [host.strip() for host in allowed_hosts_raw.split(',') if host.strip()]
+else:
+    ALLOWED_HOSTS = allowed_hosts_raw.split()
 
