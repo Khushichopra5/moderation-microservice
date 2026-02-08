@@ -10,4 +10,7 @@ djangorestframework-simplejwt
 google-auth
 google-auth-httplib2
 google-cloud-language
+dj-database-url
+gunicorn
+whitenoise
 
