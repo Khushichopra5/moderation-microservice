@@ -25,5 +25,12 @@ COPY . /app/
 COPY ./entrypoint.sh /app/entrypoint.sh
 RUN chmod +x /app/entrypoint.sh
 
+# Collect static files
+RUN python manage.py collectstatic --noinput || true
+
 # Run entrypoint.sh
 ENTRYPOINT ["/app/entrypoint.sh"]
+
+# Start gunicorn server (Railway provides PORT environment variable)
+# Use shell form to allow environment variable expansion
+CMD ["sh", "-c", "gunicorn config.wsgi:application --bind 0.0.0.0:${PORT:-8000} --workers 2 --timeout 120 --access-logfile - --error-logfile -"]
